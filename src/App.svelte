@@ -1,49 +1,55 @@
 <script>
-	export let cells = [
-		['one', 'two', 'three', 'four', 'five'],
-		['one', 'two', 'three', 'four', 'five'],
-		['one', 'two', 'BINGO', 'four', 'five'],
-		['one', 'two', 'three', 'four', 'five'],
-		['one', 'two', 'three', 'four', 'five'],
-	];
-	export let done = {
-		'1,1': true,
-	};
-	function isDone(r, c) {
-		return ;
-	}
-	function markDone(r, c) {
-		done[r+','+c] = true;
-		done = done;
-		console.log(done);
-	}
+import {username, loaded, grid, toggle, resetWords} from './store';
+import {onMount} from 'svelte';
+
+onMount(() => {
+	if (!$username) $username = prompt('Who are you?');
+})
 </script>
 
+<svelte:body class:gap={true}/>
+
 <main>
-	<table>
-		<tbody>
-			{#each cells as row, r}
-				<tr>
-					{#each row as cell, c}
-						<td on:click={() => markDone(r,c)} class:done={done[r+','+c]} class:bingo={cell == 'BINGO'}>{cell}</td>
-					{/each}
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+	<nav>
+		<button on:click={resetWords}>Reset</button>
+		<button on:click={e => $username = prompt('Who are you?')}>{$username}</button> 
+	</nav>
+	{#if $loaded}
+		<table>
+			<tbody>
+				{#each $grid as row, r}
+					<tr>
+						{#each row as cell, c}
+							<td on:click={() => toggle(cell.word)} class:done={cell.done} class:bingo={cell.bingo}>{cell.word}</td>
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	{/if}
 </main>
 
 <style>
+main {
+	--top: 40px;
+}
+nav {
+	/* there are 6 1px borders */
+	height: calc(var(--top));
+}
 table {
 	margin: 0 auto;
 	padding: 0;
 	border-collapse: collapse;
 }
 td {
-	width: min(20vw, 20vh);
-	height: min(20vw, 20vh);
+	/* calculate size of cells usng vw/vh. Accomodate the nav
+	   and 6 1px borders. */
+	width: min(20vw, calc((100vh - var(--top) - 6px) / 5));
+	height: min(20vw, calc((100vh - var(--top) - 6px) / 5));
 	border: 1px solid black;
 	margin: 0;
+	padding: 0;
 	text-align: center;
 }
 td.bingo {
