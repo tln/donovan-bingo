@@ -16,8 +16,21 @@ const WORDS = [
     "Pet",
     "Hat",
     "Toy",
-    "Special someone"
+    "Special someone",
+    "Reindeer",
+    "Santa",
+    "Elves",
+    "Coal",
+    "Sleigh",
+    "Eggnog",
+    "Commercial Exploitation",
+    "Ghosts of Christmas Past",
+    "Regifting",
+    "Festivus",
+    "Mistletoe"
 ]
+
+
 
 // A simple localstorage store
 function localStore(key, defaultValue) {
@@ -52,7 +65,9 @@ username.subscribe(
         if (!(await userRef.get()).exists) {
             await userRef.set({
                 words: chooseWords(),
-                done: []
+                done: [],
+                updated: firebase.firestore.Timestamp.now(),
+                created: firebase.firestore.Timestamp.now(),
             });
             console.log('initted', userRef);
         }
@@ -75,28 +90,31 @@ let _done;
 done.subscribe(value => _done = value);
 export function toggle(word) {
     if (!_done.includes(word)) {
-        userRef?.update({done: _done.concat(word)});
+        userRef?.update({
+            updated: firebase.firestore.Timestamp.now(),
+            done: _done.concat(word)
+        });
     } else {
-        userRef?.update({done: without(_done, word)});
+        userRef?.update({
+            updated: firebase.firestore.Timestamp.now(),
+            done: without(_done, word)
+        });
     }
 }
 
-
-
-
+// Choose a random set of 24 words from WORDS.
 function chooseWords() {
-    // choose a random set of 24 words from WORDS.
     return sampleSize(WORDS, 24);
 }
 
-// Has the user won
-// Maybe set cell.winning = true?
-export function won() {
-    // TODO
-}
-
-export function resetWords() {
-    userRef?.update({words: chooseWords(), done: []});
+// TODO for development only
+export function reset() {
+    username.set('');
+    userRef?.update({
+        words: chooseWords(), 
+        done: [], 
+        claimedBingo: null
+    });
 }
 
 export const BINGO = 'BINGO', BINGO_INDEX = 12;
@@ -131,6 +149,47 @@ export const grid = derived(
             }
         }
         console.log('->', grid);
+        setBingo(grid);
+
         return grid;
     }
 )
+
+// Update `bingo` status of cells, and as a side effect, update the
+// hasBingo store
+export const hasBingo = writable(false);
+window.hasBingo = hasBingo; // TODO debugging
+function setBingo(grid) {
+    for (let cells of bingoCoords(grid)) {
+        if (cells.every(c => c.done)) {
+            hasBingo.set(true);
+            cells.forEach(c => c.bingo = true)
+            return
+        }
+    }
+    hasBingo.set(false);
+}
+function *bingoCoords(grid) {
+    const n = [0,1,2,3,4];
+    yield n.map(i => grid[i][i]);     // Top-left to bottom-right
+    yield n.map(i => grid[i][4-i]);   // Top-right to bottom left
+    for (const i of n) {
+        yield n.map(j => grid[i][j]); // row
+        yield n.map(j => grid[j][i]); // column
+    }
+}
+
+export function claimBingo() {
+    // TODO check if bingo is set?
+    userRef?.update({
+        updated: firebase.firestore.Timestamp.now(),
+        claimedBingo: firebase.firestore.Timestamp.now()
+    });
+}
+export const claimedBingo = writable(undefined);
+db.collection('users')
+  .where("claimedBingo", "!=", null)
+  .orderBy("claimedBingo", "desc")
+  .onSnapshot(
+      q => claimedBingo.set(q.docs.map(doc => doc.id)[0])
+  );
