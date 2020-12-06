@@ -30,5 +30,8 @@
     "firestore": {
       "port": 8880
     }
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

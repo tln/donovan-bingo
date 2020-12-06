@@ -6,6 +6,24 @@ let name;
 function start() {
 	$username = name;
 }
+
+let currentCell;
+function toggleCurrent() {
+	toggle(currentCell.word); 
+	currentCell = null;
+}
+function cancel() {
+	currentCell.picture = null;
+	currentCell = null;
+}
+
+let src;
+async function uploadToCurrent(event) {
+	const file = event.target.files[0];
+	const ref = firebase.storage().ref(file.name);
+	await ref.put(file);
+	currentCell.picture = await ref.getDownloadURL();
+}
 </script>
 
 <svelte:body on:keypress="" class:gap={true}/>
@@ -13,7 +31,7 @@ function start() {
 <main>
 	<nav>
 		<span class="username" on:click={reset}>{$username}</span>
-		<h1>Donovan Family Bingo</h1>		
+		<h1>Donovan Family Bingo</h1>
 	</nav>
 	{#if $claimedBingo}
 		<div class="overlay">
@@ -25,10 +43,11 @@ function start() {
 		<div class="overlay">
 			<div class="intro banner">
 				<p>Laborum exercitation aute in proident ullamco minim est. Minim exercitation excepteur et amet pariatur do nulla officia occaecat. Quis voluptate do proident velit nulla. Mollit ea ipsum sunt ut exercitation tempor anim commodo dolor consequat duis esse aliqua ullamco. Aute incididunt ex ad aliqua officia dolore esse labore anim.</p>
-				<p>Sit id ad exercitation nisi laborum consectetur est irure sint ipsum incididunt aute. Nisi veniam tempor id incididunt id dolore occaecat veniam aute enim. Dolore pariatur amet reprehenderit nulla pariatur tempor elit aliqua labore ex nulla.</p>
+				<p>xSit id ad exercitation nisi laborum consectetur est irure sint ipsum incididunt aute. Nisi veniam tempor id incididunt id dolore occaecat veniam aute enim. Dolore pariatur amet reprehenderit nulla pariatur tempor elit aliqua labore ex nulla.</p>
 				<div>
 					<input type="text" placeholder="Enter your name" bind:value={name}><button on:click={start}>Start</button>
 				</div>
+
 			</div>
 		</div>
 	{/if}
@@ -41,13 +60,34 @@ function start() {
 							{#if cell.word === 'BINGO'}
 								<td class="bingo"><button on:click={claimBingo} disabled={!$hasBingo}>BINGO</button></td>
 							{:else}
-								<td on:click={() => toggle(cell.word)} class:done={cell.done} class:bingo={cell.bingo}>{cell.word}</td>
+								<td on:click={() => currentCell = cell} class:done={cell.done} class:bingo={cell.bingo}>{cell.word}</td>
 							{/if}
 						{/each}
 					</tr>
 				{/each}
 			</tbody>
 		</table>
+		{#if currentCell}
+			<div class="overlay">
+				<div class="cell-dialog banner">
+					<h1>{currentCell.word}</h1>
+					{#if currentCell.done}
+						<p>Made a mistake? Undo this square</p>
+						<button on:click="{toggleCurrent}">Undo Square</button>
+					{:else if !currentCell.picture}
+						<p>Take a picture with you and <strong>{currentCell.word}</strong> to claim this square.</p>
+						<label class="upload-button" for="file">Upload</label>
+						<input style="display: none;" id="file" type="file" on:change={uploadToCurrent}>
+					{:else}
+						<img src={currentCell.picture} alt={currentCell.word}>
+						<p>Is this a good picture of you and <strong>{currentCell.word}</strong>?</p>
+						<button on:click="{toggleCurrent}">Claim Square</button>
+					{/if}
+					<button class="cancel-button" on:click="{cancel}">Cancel</button>
+
+				</div>
+			</div>
+		{/if}
 	{/if}
 </main>
 
@@ -114,10 +154,11 @@ td.bingo {
 .banner {
 	position: absolute;
 	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 100%;
 	padding: 1em 0;
 	background: white;
-	width: 100%;
-    transform: translateY(-50%);
 	box-sizing: border-box;
 }
 /* Large font, centered, with some color */
@@ -129,5 +170,39 @@ td.bingo {
 /* Add some padding */
 .intro {
 	padding: 0 2em;
+}
+
+div.cell-dialog {
+	width: 80%;
+	max-width: 500px;
+	padding: 1em;
+}
+div.cell-dialog h1 {
+	padding: 0; 
+	line-height: 1; 
+	margin: 0;
+}
+div.cell-dialog p {
+	margin: 1.5em 0;
+}
+div.cell-dialog button, div.cell-dialog .upload-button {
+	position: relative;
+	display: block;
+	margin: 0;
+	background: #adb;
+	width: fit-content;
+	padding: 1em;
+	border: 2px outset currentColor;
+	color: green;
+	font-weight: bold;
+}
+div.cell-dialog button.cancel-button {
+	position: absolute;
+	right: 1em;
+	bottom: 1em;
+
+	background: #ddd;
+	color: #888;
+	font-weight: bold;
 }
 </style>
