@@ -60,7 +60,13 @@ async function uploadImage(event) {
 					<tr>
 						{#each row as cell, c}
 							{#if cell.word === 'BINGO'}
-								<td class="bingo"><button on:click={claimBingo} disabled={!$hasBingo}>BINGO</button></td>
+								<td class="bingo-square" class:bingo={$hasBingo}>
+									{#if $hasBingo}
+										<button on:click={claimBingo}>BINGO</button>
+									{:else}
+										BINGO
+									{/if}
+								</td>
 							{:else}
 								<td on:click={() => currentCell = cell} 
 									class:done={cell.done} 
@@ -79,6 +85,7 @@ async function uploadImage(event) {
 				<div class="cell-dialog banner">
 					<h1>{currentCell.word}</h1>
 					{#if currentCell.done}
+						<div class="view-image" style={`background-image: URL('${currentCell.image}')`}/>
 						<p>Made a mistake? Undo this square</p>
 						<button on:click="{setCurrentNotDone}">Undo Square</button>
 					{:else if !image}
@@ -86,7 +93,7 @@ async function uploadImage(event) {
 						<label class="upload-button" for="file">Upload</label>
 						<input style="display: none;" id="file" type="file" on:change={uploadImage}>
 					{:else}
-						<img src={image} alt={currentCell.word}>
+						<div class="view-image" style={`background-image: URL('${image}')`}/>
 						<p>Is this a good picture of you and <strong>{currentCell.word}</strong>?</p>
 						<button on:click="{setCurrentDone}">Claim Square</button>
 					{/if}
@@ -132,23 +139,20 @@ td {
 	border: 1px solid black;
 	margin: 0;
 	padding: 0;
-	text-shadow: 1px 1px 4px 8px #adb;
+	text-shadow: 0px 0px 6px #adb;
 	text-align: center;
 	background-size: cover;
 	background-repeat: no-repeat;
 }
-td button {
-	display: block;
-	width: 100%;
-	height: 100%;
-	margin: 0;
-}
-td.done {
+.done {
 	font-weight: bold;
 }
-td.bingo {
+.bingo {
+	outline: 3px solid red;
+}
+.bingo-square {
 	font-weight: bold;
-	color: red;
+	background: #d88;
 }
 /* Overlay obscures all of the content on the screen */
 .overlay {
@@ -195,7 +199,7 @@ div.cell-dialog h1 {
 div.cell-dialog p {
 	margin: 1.5em 0;
 }
-div.cell-dialog button, div.cell-dialog .upload-button {
+div.cell-dialog button, div.cell-dialog .upload-button, .bingo button {
 	position: relative;
 	display: block;
 	margin: 0;
@@ -206,6 +210,9 @@ div.cell-dialog button, div.cell-dialog .upload-button {
 	color: green;
 	font-weight: bold;
 }
+.bingo button {
+	display: inline;
+}
 div.cell-dialog button.cancel-button {
 	position: absolute;
 	right: 1em;
@@ -215,4 +222,13 @@ div.cell-dialog button.cancel-button {
 	color: #888;
 	font-weight: bold;
 }
+.view-image {
+	background-size: cover;
+	background-repeat: no-repeat;
+	width: min(30vw, 30vh);
+	height: min(30vw, 30vh);
+	border: 1px solid black;
+	margin: 1em 0;
+}
+
 </style>
