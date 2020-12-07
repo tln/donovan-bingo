@@ -1,5 +1,5 @@
 <script>
-import {username, loaded, grid, toggle, hasBingo, reset, claimBingo, claimedBingo} from './store';
+import {username, loaded, grid, setDone, setNotDone, hasBingo, reset, claimBingo, claimedBingo} from './store';
 import {onMount} from 'svelte';
 
 let name;
@@ -7,22 +7,24 @@ function start() {
 	$username = name;
 }
 
-let currentCell;
-function toggleCurrent() {
-	toggle(currentCell.word); 
-	currentCell = null;
+let currentCell, image;
+function setCurrentDone() {
+	setDone(currentCell.word, image);
+	cancel();
+}
+function setCurrentNotDone() {
+	setNotDone(currentCell.word);
+	cancel();
 }
 function cancel() {
-	currentCell.picture = null;
+	image = null;
 	currentCell = null;
 }
-
-let src;
-async function uploadToCurrent(event) {
+async function uploadImage(event) {
 	const file = event.target.files[0];
 	const ref = firebase.storage().ref(file.name);
 	await ref.put(file);
-	currentCell.picture = await ref.getDownloadURL();
+	image = await ref.getDownloadURL();
 }
 </script>
 
@@ -60,7 +62,12 @@ async function uploadToCurrent(event) {
 							{#if cell.word === 'BINGO'}
 								<td class="bingo"><button on:click={claimBingo} disabled={!$hasBingo}>BINGO</button></td>
 							{:else}
-								<td on:click={() => currentCell = cell} class:done={cell.done} class:bingo={cell.bingo}>{cell.word}</td>
+								<td on:click={() => currentCell = cell} 
+									class:done={cell.done} 
+									class:bingo={cell.bingo}
+									style={`background-image: URL('${cell.image}')`}
+									title="{cell.image}"
+								>{cell.word}</td>
 							{/if}
 						{/each}
 					</tr>
@@ -73,15 +80,15 @@ async function uploadToCurrent(event) {
 					<h1>{currentCell.word}</h1>
 					{#if currentCell.done}
 						<p>Made a mistake? Undo this square</p>
-						<button on:click="{toggleCurrent}">Undo Square</button>
-					{:else if !currentCell.picture}
+						<button on:click="{setCurrentNotDone}">Undo Square</button>
+					{:else if !image}
 						<p>Take a picture with you and <strong>{currentCell.word}</strong> to claim this square.</p>
 						<label class="upload-button" for="file">Upload</label>
-						<input style="display: none;" id="file" type="file" on:change={uploadToCurrent}>
+						<input style="display: none;" id="file" type="file" on:change={uploadImage}>
 					{:else}
-						<img src={currentCell.picture} alt={currentCell.word}>
+						<img src={image} alt={currentCell.word}>
 						<p>Is this a good picture of you and <strong>{currentCell.word}</strong>?</p>
-						<button on:click="{toggleCurrent}">Claim Square</button>
+						<button on:click="{setCurrentDone}">Claim Square</button>
 					{/if}
 					<button class="cancel-button" on:click="{cancel}">Cancel</button>
 
@@ -125,7 +132,10 @@ td {
 	border: 1px solid black;
 	margin: 0;
 	padding: 0;
+	text-shadow: 1px 1px 4px 8px #adb;
 	text-align: center;
+	background-size: cover;
+	background-repeat: no-repeat;
 }
 td button {
 	display: block;
@@ -134,10 +144,10 @@ td button {
 	margin: 0;
 }
 td.done {
-	background: #bad;
+	font-weight: bold;
 }
 td.bingo {
-	background: #abd;
+	font-weight: bold;
 	color: red;
 }
 /* Overlay obscures all of the content on the screen */
