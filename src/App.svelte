@@ -1,5 +1,5 @@
 <script>
-import {username, loaded, grid, setDone, setNotDone, hasBingo, reset, claimBingo, claimedBingo} from './store';
+import {username, loaded, grid, setDone, setNotDone, hasBingo, reset, claimBingo, claimedBingo, setEmoji} from './store';
 import {onMount} from 'svelte';
 
 let name;
@@ -25,6 +25,10 @@ async function uploadImage(event) {
 	const ref = firebase.storage().ref(file.name);
 	await ref.put(file);
 	image = await ref.getDownloadURL();
+}
+function updateEmoji() {
+	console.log('updateEmoji');
+	setEmoji(currentCell.word, prompt(`Emoji for ${currentCell.word}`, currentCell.emoji));
 }
 </script>
 
@@ -73,7 +77,7 @@ async function uploadImage(event) {
 									class:bingo={cell.bingo}
 									style={`background-image: URL('${cell.image}')`}
 									title="{cell.image}"
-								>{cell.word}</td>
+								>{cell.emoji}{cell.word}</td>
 							{/if}
 						{/each}
 					</tr>
@@ -83,7 +87,7 @@ async function uploadImage(event) {
 		{#if currentCell}
 			<div class="overlay">
 				<div class="cell-dialog banner">
-					<h1>{currentCell.word}</h1>
+					<h1 on:click={updateEmoji}>{currentCell.emoji}{currentCell.word}</h1>
 					{#if currentCell.done}
 						<div class="view-image" style={`background-image: URL('${currentCell.image}')`}/>
 						<p>Made a mistake? Undo this square</p>

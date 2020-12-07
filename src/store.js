@@ -33,6 +33,8 @@ if (false) {
     let c = db.collection('words');
     for (let word of WORDS) c.doc(word).set({word}).then(() => console.log('added', word));
 }
+
+// Provide way to get the list of ALL_WORDS
 let ALL_WORDS;
 async function allWords() {
     console.log('allWords', ALL_WORDS)
@@ -41,6 +43,20 @@ async function allWords() {
     ALL_WORDS = q.docs.map(d => d.get('word'));
     console.log('->', ALL_WORDS);
     return ALL_WORDS;
+}
+
+// Maintain a list of emojis and provide way to update
+const emojis = writable({});
+db.collection('words').onSnapshot(
+    q => emojis.set(
+        q.docs.reduce(
+            (o, doc) => (o[doc.id] = doc.get('emoji'), o),
+            {}
+        )
+    )
+)
+export function setEmoji(word, emoji) {
+    db.collection('words').doc(word).update({emoji});
 }
 
 // A simple localstorage store
@@ -149,8 +165,8 @@ export const BINGO = 'BINGO', BINGO_INDEX = 12;
 
 // turn words for the current user into a grid
 export const grid = derived(
-    words,
-    words => {
+    [words, emojis],
+    ([words, emojis]) => {
         if (!words || !words.length) return [];
         console.log('grid:', words);
         const grid = [];
@@ -171,7 +187,7 @@ export const grid = derived(
                     default:
                         ({word, done, image} = words[index]);
                 }
-                row.push({word, bingo, done, image});
+                row.push({word, bingo, done, image, emoji: emojis[word]||''});
             }
         }
         console.log('->', grid);
