@@ -40,7 +40,9 @@ async function allWords() {
     console.log('allWords', ALL_WORDS)
     if (ALL_WORDS) return ALL_WORDS;
     let q = await db.collection('words').get();
-    ALL_WORDS = q.docs.map(d => d.get('word'));
+    ALL_WORDS = q.docs.map(d => ({type: 'word', word: d.get('word')}));
+    q = await db.collection('users').get();
+    q.forEach(d => ALL_WORDS.push({word: d.id, type: 'person'}));
     console.log('->', ALL_WORDS);
     return ALL_WORDS;
 }
@@ -93,10 +95,9 @@ username.subscribe(
         userLoaded.set(false);
         wordsLoaded.set(false);
         userRef = db.collection('users').doc(username);
+        wordsRef = userRef.collection('words');
         // Initalize the user, before we subscribe
-        if (!(await userRef.get()).exists) {
-            await initUser()
-        }
+        await initUser()
 
         // Update words, done when user data changes
         unsub = userRef.onSnapshot(
@@ -108,7 +109,6 @@ username.subscribe(
         )
 
         // Update done when docs are added or removed
-        wordsRef = userRef.collection('words');
         unsubWords = wordsRef.orderBy('index').onSnapshot(
             q => {
                 words.set(q.docs.map(d=>d.data()))
@@ -118,14 +118,20 @@ username.subscribe(
     }
 )
 async function initUser() {
+    let userDoc = await userRef.get();
+    if (userDoc.exists && userDoc.get('created')) {
+        // already initted
+        return;
+    }
     await userRef.set({
         updated: firebase.firestore.Timestamp.now(),
         created: firebase.firestore.Timestamp.now(),
     });
     let index = 0;
-    for (let word of await chooseWords()) {
+    for (let {word, type} of await chooseWords()) {
         wordsRef.doc(word).set({
             word,
+            type,
             index,
             done: null,  // will be set to a date
             image: null  // will be set to a URL
@@ -149,7 +155,7 @@ export function setNotDone(word) {
     });
 }
 
-// Choose a random set of 24 words from WORDS.
+// Choose a random set of 24 words.
 async function chooseWords() {
     return sampleSize(await allWords(), 24);
 }
@@ -174,20 +180,21 @@ export const grid = derived(
             const row = [];
             grid.push(row);
             for (let c = 0; c < 5; c++) {
-                let index = r*5+c, word, bingo = false, done, image = null;
+                let index = r*5+c, word, bingo = false, done, image = null, type;
                 switch(true) {
                     case index == BINGO_INDEX:
                         word = BINGO;
                         bingo = true;
                         done = true;
+                        type = 'bingo'
                         break;
                     case index > BINGO_INDEX:
                         index--;
                         // fallthrough
                     default:
-                        ({word, done, image} = words[index]);
+                        ({word, done, image, type} = words[index]);
                 }
-                row.push({word, bingo, done, image, emoji: emojis[word]||''});
+                row.push({word, bingo, done, image, type, emoji: emojis[word]||''});
             }
         }
         console.log('->', grid);

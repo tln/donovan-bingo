@@ -77,7 +77,8 @@ function updateEmoji() {
 									class:bingo={cell.bingo}
 									style={`background-image: URL('${cell.image}')`}
 									title="{cell.image}"
-								>{cell.emoji}{cell.word}</td>
+								><div class="emoji">{cell.emoji}</div>
+								{cell.word}</td>
 							{/if}
 						{/each}
 					</tr>
@@ -93,7 +94,11 @@ function updateEmoji() {
 						<p>Made a mistake? Undo this square</p>
 						<button on:click="{setCurrentNotDone}">Undo Square</button>
 					{:else if !image}
-						<p>Take a picture with you and <strong>{currentCell.word}</strong> to claim this square.</p>
+						{#if currentCell.type == 'person'}
+							<p>Have a conversation with <strong>{currentCell.word}</strong>, screenshot it and upload to claim this square. OR: upload a funny/embarrassing photo of <strong>{currentCell.word}</strong></p>
+						{:else}
+							<p>Take a picture with you and <strong>{currentCell.word}</strong> to claim this square.</p>
+						{/if}
 						<label class="upload-button" for="file">Upload</label>
 						<input style="display: none;" id="file" type="file" on:change={uploadImage}>
 					{:else}
@@ -147,6 +152,9 @@ td {
 	text-align: center;
 	background-size: cover;
 	background-repeat: no-repeat;
+}
+.emoji {
+	font-size: min(5vw, 5vh);
 }
 .done {
 	font-weight: bold;
