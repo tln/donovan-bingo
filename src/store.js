@@ -70,7 +70,7 @@ function localStore(key, defaultValue) {
 export const username = localStore('username', '');
 
 // Embargo -- seconds until embargo date
-const embargoDate = new Date('2020-12-12 4:00:00').valueOf();
+const embargoDate = new Date('2020-12-12 4:00:00').valueOf() / 1000;
 export const embargo = writable(-1);
 function secs() {
     return Math.floor(Date.now() / 1000);

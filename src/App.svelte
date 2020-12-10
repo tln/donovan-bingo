@@ -69,7 +69,7 @@ function updateEmoji() {
 						<input type="text" placeholder="Enter your name" bind:value={name}><button on:click={start}>Start</button>
 					</div>
 				{:else if $embargo}
-					<p>You are signed up! Start playing in <b>{$countDown}</b> ({$embargo})</p>
+					<p>You are signed up! Start playing in <b>{$countDown}</b></p>
 				{/if}
 			</div>
 		</div>
