@@ -1,6 +1,6 @@
 import {db} from './db';
 import { writable, derived } from 'svelte/store';
-import {sampleSize, cloneDeep} from "lodash";
+import {sampleSize, shuffle} from "lodash";
 if (false) {
     const WORDS = [
         "Christmas tree",
@@ -35,16 +35,13 @@ if (false) {
 }
 
 // Provide way to get the list of ALL_WORDS
-let ALL_WORDS;
 async function allWords() {
-    console.log('allWords', ALL_WORDS)
-    if (ALL_WORDS) return ALL_WORDS;
     let q = await db.collection('words').get();
-    ALL_WORDS = q.docs.map(d => ({type: 'word', word: d.get('word')}));
-    q = await db.collection('users').get();
-    q.forEach(d => ALL_WORDS.push({word: d.id, type: 'person'}));
-    console.log('->', ALL_WORDS);
-    return ALL_WORDS;
+    return q.docs.map(d => ({type: 'word', word: d.get('word')}));
+}
+async function allUsers() {
+    let q = await db.collection('users').get();
+    return q.docs.map(d => ({word: d.id, type: 'person'}));
 }
 
 // Maintain a list of emojis and provide way to update
@@ -72,13 +69,27 @@ function localStore(key, defaultValue) {
 // The username we should log in as
 export const username = localStore('username', '');
 
-// Are we fully loaded?
-const userLoaded = writable(false);
-const wordsLoaded = writable(false);
-export const loaded = derived(
-    [userLoaded, wordsLoaded],
-    ([userLoaded, wordsLoaded]) => userLoaded && wordsLoaded
-)
+// Embargo -- seconds until embargo date
+const embargoDate = new Date('2020-12-12 4:00:00').valueOf();
+export const embargo = writable(-1);
+function secs() {
+    return Math.floor(Date.now() / 1000);
+}
+setInterval(() => embargo.set(Math.max(0, embargoDate - secs()), 1000));
+function countDownString(secs) {
+    let parts = [];
+    function calcPart(unit, divisor) {
+        let n = secs % divisor;
+        secs = Math.floor(secs / divisor);
+        if (n) parts.unshift(n+' '+unit+(n > 1 ? 's' : ''));
+    }
+    calcPart('second', 60);
+    calcPart('minute', 60);
+    calcPart('hour', 24);
+    calcPart('day', 1000);  // we won't need to do beyond days
+    return parts.join(' ');
+}
+export const countDown = derived(embargo, countDownString);
 
 // Export stores for the users' word lists.
 export const words = writable([]);
@@ -86,35 +97,23 @@ export const words = writable([]);
 // Maintain a reference to the user document based on the
 // username. Update the `words` and `done` whenever the user 
 // is updated.
-let userRef, unsub = () => {};
-let wordsRef, unsubWords = () => {};
+let usernameString, userRef, wordsRef, unsub;
+const userLoaded = writable(false);
+const needWords = writable(true);
 username.subscribe(
     async username => {
-        unsub(); // Stop updates from previous subscription
-        unsubWords();
+        if (unsub) unsub(); // Stop updates from previous subscription
+        unsub = null;
         userLoaded.set(false);
-        wordsLoaded.set(false);
+        words.set([]);
+        if (!username) return;
+        usernameString = username;
         userRef = db.collection('users').doc(username);
         wordsRef = userRef.collection('words');
-        // Initalize the user, before we subscribe
-        await initUser()
 
-        // Update words, done when user data changes
-        unsub = userRef.onSnapshot(
-            doc => {
-                let data = doc.data() || {};
-                words.set(data.words);
-                userLoaded.set(true);
-            }
-        )
-
-        // Update done when docs are added or removed
-        unsubWords = wordsRef.orderBy('index').onSnapshot(
-            q => {
-                words.set(q.docs.map(d=>d.data()))
-                wordsLoaded.set(true);
-            }
-        )
+        // Initalize the user
+        await initUser();
+        userLoaded.set(true);
     }
 )
 async function initUser() {
@@ -126,20 +125,52 @@ async function initUser() {
     await userRef.set({
         updated: firebase.firestore.Timestamp.now(),
         created: firebase.firestore.Timestamp.now(),
+        wordsChosen: false,
     });
-    let index = 0;
-    for (let {word, type} of await chooseWords()) {
-        wordsRef.doc(word).set({
-            word,
-            type,
-            index,
-            done: null,  // will be set to a date
-            image: null  // will be set to a URL
-        });
-        index++;
-    }
-    console.log('initted', userRef);
 }
+let initting = false;
+async function initUserWords() {
+    let userDoc = await userRef.get();
+    console.log(initting, userDoc.exists, userDoc.data().wordsLoaded, unsub);
+    if (initting || !userDoc.exists) return;
+    initting = true;
+    if (!userDoc.data().wordsLoaded) {
+        console.log('loading words');
+        let index = 0;
+        const batch = db.batch();
+        for (let {word, type} of await chooseWords()) {
+            console.log('add word', word);
+            batch.set(wordsRef.doc(word), {
+                word,
+                type,
+                index,
+                done: null,  // will be set to a date
+                image: null  // will be set to a URL
+            });
+            index++;
+        }
+        batch.update(userRef, {wordsLoaded: true});
+        await batch.commit();
+    }
+    if (!unsub) {
+        console.log('subbing');
+        // Update words store now, and when docs are added or removed
+        unsub = wordsRef.orderBy('index').onSnapshot(
+            q => words.set(q.docs.map(d=>d.data()))
+        )
+    }
+    initting = false;
+}
+
+// Mark whether user is ready to play
+export const loaded = derived(
+    [userLoaded, embargo, words],
+    ([userLoaded, embargo, words]) => {
+        if (embargo || !userLoaded) return false;
+        if (!words.length) initUserWords();
+        return words.length > 0;
+    }        
+);
 
 // Provide a way to mark a word as done.
 export function setDone(word, image) {
@@ -156,14 +187,18 @@ export function setNotDone(word) {
 }
 
 // Choose a random set of 24 words.
+// Choose up to 8 users, and the rest from words.
 async function chooseWords() {
-    return sampleSize(await allWords(), 24);
+    let users = (await allUsers()).filter(w => w.word != usernameString);
+    let words = sampleSize(users, 8);
+    console.log('chooseWords: words', words);
+    return shuffle(words.concat(sampleSize(await allWords(), 24 - words.length)));
 }
 
 // TODO for development only
 export async function reset() {
     if (!userRef) return;
-    userRef.delete();
+    // userRef.delete();
     username.set('');
 }
 

@@ -1,5 +1,18 @@
 <script>
-import {username, loaded, grid, setDone, setNotDone, hasBingo, reset, claimBingo, claimedBingo, setEmoji} from './store';
+import {
+	username, 
+	loaded, 
+	grid, 
+	setDone, 
+	setNotDone, 
+	hasBingo, 
+	reset, 
+	claimBingo, 
+	claimedBingo, 
+	setEmoji,
+	countDown, 
+	embargo
+} from './store';
 import {onMount} from 'svelte';
 
 let name;
@@ -37,7 +50,7 @@ function updateEmoji() {
 <main>
 	<nav>
 		<span class="username" on:click={reset}>{$username}</span>
-		<h1>Donovan Family Bingo</h1>
+		<h1>🎄🎁🛷 Donovan Christmas Bingo 🛷🎁🎄</h1>
 	</nav>
 	{#if $claimedBingo}
 		<div class="overlay">
@@ -45,15 +58,19 @@ function updateEmoji() {
 				<strong>{$claimedBingo}</strong> won!
 			</div>
 		</div>
-	{:else if !$username}
+	{:else if !$username || $embargo}
 		<div class="overlay">
 			<div class="intro banner">
-				<p>Laborum exercitation aute in proident ullamco minim est. Minim exercitation excepteur et amet pariatur do nulla officia occaecat. Quis voluptate do proident velit nulla. Mollit ea ipsum sunt ut exercitation tempor anim commodo dolor consequat duis esse aliqua ullamco. Aute incididunt ex ad aliqua officia dolore esse labore anim.</p>
-				<p>xSit id ad exercitation nisi laborum consectetur est irure sint ipsum incididunt aute. Nisi veniam tempor id incididunt id dolore occaecat veniam aute enim. Dolore pariatur amet reprehenderit nulla pariatur tempor elit aliqua labore ex nulla.</p>
-				<div>
-					<input type="text" placeholder="Enter your name" bind:value={name}><button on:click={start}>Start</button>
-				</div>
-
+				<h2>Welcome to Donovan Christmas Bingo!</h2>
+				<p>Rules are in the <b>WhatsApp Group</b>.</p>
+				{#if !$username}
+					<p>To Sign Up just enter your name:</p>
+					<div>
+						<input type="text" placeholder="Enter your name" bind:value={name}><button on:click={start}>Start</button>
+					</div>
+				{:else if $embargo}
+					<p>You are signed up! Start playing in <b>{$countDown}</b> ({$embargo})</p>
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -127,6 +144,7 @@ nav h1 {
 	padding: 0;
 	margin: 0;
 	line-height: inherit;
+	text-align: center;
 }
 nav .username {
 	float: right;
@@ -139,6 +157,7 @@ table {
 	margin: 0 auto;
 	padding: 0;
 	border-collapse: collapse;
+	background: #ffffff80;
 }
 td {
 	/* calculate size of cells usng vw/vh. Accomodate the nav
